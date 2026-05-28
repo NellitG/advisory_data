@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from data.models import AdvisoryKnowledge
+
+
+@admin.register(AdvisoryKnowledge)
+class AdvisoryKnowledgeAdmin(admin.ModelAdmin):
+    list_display = ("value_chain", "question")
+    search_fields = ("value_chain", "question", "answer")
