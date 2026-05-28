@@ -10,7 +10,7 @@ class RAGTests(TestCase):
     def setUp(self):
         AdvisoryKnowledge.objects.create(
             value_chain="banana",
-            question="Site selection",
+            question="Where is the best place to plant banana?",
             answer="Avoid water logging and choose well-drained soils.",
         )
         AdvisoryKnowledge.objects.create(
@@ -25,7 +25,7 @@ class RAGTests(TestCase):
         )
         AdvisoryKnowledge.objects.create(
             value_chain="banana",
-            question="Banana Pests",
+            question="How do I manage pests in banana?",
             answer="Use clean planting material and control nematodes and banana weevils.",
         )
 
@@ -40,7 +40,7 @@ class RAGTests(TestCase):
 
         self.assertEqual(len(contexts), 1)
         self.assertEqual(contexts[0].value_chain, "banana")
-        self.assertEqual(contexts[0].question, "Banana Pests")
+        self.assertEqual(contexts[0].question, "How do I manage pests in banana?")
 
     @override_settings(ROOT_URLCONF="config.urls")
     def test_rag_query_endpoint_returns_answer_and_sources(self):
@@ -60,4 +60,5 @@ class RAGTests(TestCase):
         self.assertIn("answer", response.data)
         self.assertEqual(response.data["used_llm"], False)
         self.assertEqual(response.data["source"]["value_chain"], "banana")
+        self.assertEqual(response.data["source"]["topic"], response.data["sources"][0]["question"])
         self.assertEqual(response.data["sources"][0]["value_chain"], "banana")
