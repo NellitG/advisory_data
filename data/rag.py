@@ -120,7 +120,7 @@ def score_row(question_keywords, row, crop_name=None):
     topic_matches = len(question_keywords & get_keywords(row.question))
     answer_matches = len(question_keywords & get_keywords(row.answer))
 
-    score = (crop_matches * 8) + (topic_matches * 5) + answer_matches
+    score = (crop_matches * 8) + (topic_matches * 12) + answer_matches
     if crop_name and normalize(crop_name) == normalize(row.value_chain):
         score += 10
 
@@ -128,12 +128,13 @@ def score_row(question_keywords, row, crop_name=None):
 
 
 def build_messages(question, contexts):
+    contexts = contexts[:1]
     context_text = "\n\n".join(
         (
             f"Source {index}\n"
             f"Value chain: {row.value_chain}\n"
-            f"Topic: {row.question}\n"
-            f"Information: {row.answer}"
+            f"Database question: {row.question}\n"
+            f"Database answer: {row.answer}"
         )
         for index, row in enumerate(contexts, start=1)
     )
@@ -143,9 +144,10 @@ def build_messages(question, contexts):
             "role": "system",
             "content": (
                 "You are a friendly agricultural advisory assistant. "
-                "Answer using only the supplied context. "
-                "If the context does not contain enough information, say so and suggest what to ask next. "
-                "Give a direct solution first, then mention the source topic you used. "
+                "Use only the supplied database question and database answer. "
+                "Do not use information from another source. "
+                "If the database answer does not contain a clear solution, say what it does contain. "
+                "Give a direct, practical response first, then mention the source question you used. "
                 "Keep the answer practical, clear, and warm."
             ),
         },
@@ -202,15 +204,36 @@ def answer_without_llm(question, contexts):
 
 
 def make_friendly_fallback_answer(question, contexts):
-    crop_name = contexts[0].value_chain
-    solution_items = get_solution_items(question, contexts, crop_name)
-    solution_points = [item["text"] for item in solution_items]
-    source_topics = unique_source_topics(solution_items, contexts)
+    row = contexts[0]
+    answer_points, has_direct_solution = get_answer_points_from_row(row)
+    label = "Solution" if has_direct_solution else "Answer"
 
     return (
-        f"Solution for {crop_name}: {format_solution_points(solution_points)} "
-        f"Source: {source_topics}."
+        f"{label} for {row.value_chain}: {format_solution_points(answer_points)} "
+        f"Source: {row.question}."
     )
+
+
+def get_answer_points_from_row(row, max_points=3):
+    action_points = []
+    fallback_points = []
+
+    for sentence in split_sentences(row.answer):
+        cleaned_sentence = clean_sentence(sentence)
+        if not cleaned_sentence:
+            continue
+
+        fallback_points.append(cleaned_sentence)
+        if has_action_word(cleaned_sentence):
+            action_points.append(clean_action_sentence(cleaned_sentence))
+
+        if len(action_points) >= max_points:
+            return action_points[:max_points], True
+
+    if action_points:
+        return action_points, True
+
+    return fallback_points[:max_points], False
 
 
 def get_solution_items(question, contexts, crop_name, max_points=3):
@@ -337,16 +360,4 @@ def short_source_payload(row):
 
 
 def fallback_source_rows(question, contexts):
-    if not contexts:
-        return []
-
-    crop_name = contexts[0].value_chain
-    solution_items = get_solution_items(question, contexts, crop_name)
-    rows = []
-
-    for item in solution_items:
-        row = item["row"]
-        if row not in rows:
-            rows.append(row)
-
-    return rows or contexts[:1]
+    return contexts[:1]
