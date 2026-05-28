@@ -37,3 +37,5 @@ Thumbs.db
 # Static/media files (if generated)
 staticfiles/
 media/
+
+db.sqlite3.before_questions_20260528_160234.bak
